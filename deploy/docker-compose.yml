@@ -7,21 +7,45 @@
 name: wagagent
 
 services:
+  # Gateway LLM 9Router — satu VM, satu compose.
+  # WagAgent memanggilnya lewat nama service: http://9router:20128/v1
+  9router:
+    image: ${NINEROUTER_IMAGE:-decolua/9router:latest}
+    container_name: 9router
+    restart: unless-stopped
+    environment:
+      - PORT=20128
+      - HOSTNAME=0.0.0.0
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+      # Opsional (set di .env bila dashboard diekspos): JWT_SECRET, INITIAL_PASSWORD, REQUIRE_API_KEY=true
+    volumes:
+      - ./9router-data:/app/data
+    networks:
+      - wagagent
+    # Dashboard hanya diikat ke localhost VM (akses via SSH tunnel), TIDAK ke publik.
+    # Akses dari laptop:  ssh -L 20128:localhost:20128 user@IP_VM  lalu buka http://localhost:20128
+    ports:
+      - "127.0.0.1:20128:20128"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   wagagent:
     # Image di-set lewat env WAGAGENT_IMAGE di .env, mis:
     #   WAGAGENT_IMAGE=docker.io/USERNAME/wagagent:latest
     image: ${WAGAGENT_IMAGE:-wagagent:latest}
     container_name: wagagent
     restart: unless-stopped
+    depends_on:
+      - 9router
     env_file:
       - .env
     volumes:
       - ./data:/app/data
     tty: true
-    # Agar container bisa menjangkau service di HOST yang sama (mis. 9Router)
-    # lewat http://host.docker.internal:PORT
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - wagagent
     logging:
