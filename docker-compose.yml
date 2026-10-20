@@ -16,6 +16,9 @@ services:
       - HOSTNAME=0.0.0.0
       - NODE_ENV=production
       - DATA_DIR=/app/data
+      # Password login dashboard. Default image: 123456. Ganti lewat .env: NINEROUTER_PASSWORD=...
+      - INITIAL_PASSWORD=${NINEROUTER_PASSWORD:-123456}
+      - JWT_SECRET=${NINEROUTER_JWT_SECRET:-please-change-this-secret}
     volumes:
       - ./9router-data:/app/data
     networks:
