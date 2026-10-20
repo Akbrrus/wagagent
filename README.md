@@ -150,6 +150,24 @@ GitHub Actions akan build, push, dan deploy otomatis ke VM. 🎉
 
 ---
 
+## Isolasi (tidak bentrok dengan stack lain di VM)
+
+WagAgent dirancang berdiri sendiri dan aman dijalankan berdampingan dengan container/compose lain:
+
+- **Nama project di-pin** (`name: wagagent`) → network & resource selalu di-namespace `wagagent_...`, berapapun nama folder deploy.
+- **Network khusus** (`wagagent_wagagent`, driver bridge) → tidak ikut network `default` milik stack lain.
+- **Tidak publish port apa pun** → aplikasi hanya koneksi keluar (WhatsApp Web + Claude API), jadi mustahil bentrok port dengan service lain.
+- **Volume bind-mount lokal** (`./data`) → data tersimpan di folder deploy, tidak memakai named-volume global yang bisa tertukar.
+- **Satu service, `container_name: wagagent`** → pastikan tidak ada container lain di VM yang sudah memakai nama ini (nama container bersifat global di Docker).
+
+Cek isolasi setelah jalan:
+
+```bash
+docker compose -p wagagent ps          # hanya container wagagent
+docker network ls | grep wagagent      # network wagagent_wagagent
+docker inspect wagagent --format '{{json .NetworkSettings.Networks}}'
+```
+
 ## Struktur project
 
 ```

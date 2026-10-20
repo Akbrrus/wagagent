@@ -1,6 +1,11 @@
 # Compose untuk PRODUCTION di VM.
 # TIDAK build dari source — hanya pull image dari Docker Hub.
 # File ini + .env diletakkan di VM pada folder deploy (mis. /opt/wagagent).
+
+# Pin nama project -> resource selalu "wagagent_...", tidak tercampur stack lain
+# di VM (mis. nginx, db, dsb). Setara dengan `docker compose -p wagagent`.
+name: wagagent
+
 services:
   wagagent:
     # Image di-set lewat env WAGAGENT_IMAGE di .env, mis:
@@ -13,8 +18,16 @@ services:
     volumes:
       - ./data:/app/data
     tty: true
+    networks:
+      - wagagent
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  wagagent:
+    # Network khusus stack ini (nama efektif: "wagagent_wagagent").
+    # Terisolasi; tidak menyentuh network compose lain di VM.
+    driver: bridge

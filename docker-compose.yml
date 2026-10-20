@@ -1,5 +1,10 @@
 # Compose untuk DEVELOPMENT / build lokal.
 # Build image dari source dan jalankan. QR muncul di log container.
+
+# Pin nama project -> semua resource (network, dll) di-namespace "wagagent_..."
+# berapapun nama foldernya, jadi tidak tercampur stack lain.
+name: wagagent
+
 services:
   wagagent:
     build:
@@ -14,3 +19,13 @@ services:
       - ./data:/app/data
     # tty agar QR code (yang digambar ke terminal) tampil rapi di `docker compose logs`.
     tty: true
+    # Hanya pakai network milik stack ini. Tidak publish port apa pun
+    # (aplikasi hanya koneksi keluar), jadi tidak ada bentrok port.
+    networks:
+      - wagagent
+
+networks:
+  wagagent:
+    # Tanpa "name:" eksplisit -> Compose memberi prefix project: "wagagent_wagagent".
+    # Terisolasi dari network stack/compose lain di host yang sama.
+    driver: bridge
