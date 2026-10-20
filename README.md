@@ -150,6 +150,61 @@ GitHub Actions akan build, push, dan deploy otomatis ke VM. 🎉
 
 ---
 
+## Ganti LLM: Claude ↔ Qwen lokal (atau model lain)
+
+WagAgent punya lapisan provider, jadi mesin ringkasnya bisa diganti **tanpa ubah kode** — cukup env.
+
+| `LLM_PROVIDER` | Dipakai untuk | Env yang diisi |
+|---|---|---|
+| `anthropic` | Claude (default) | `ANTHROPIC_API_KEY`, `CLAUDE_MODEL` |
+| `openai` | Qwen lokal, **9Router**, atau endpoint apa pun yang kompatibel OpenAI (`/v1/chat/completions`) | `LLM_BASE_URL`, `LLM_MODEL`, (opsional) `LLM_API_KEY`, `LLM_MAX_INPUT_CHARS` |
+
+### Contoh: 9Router (gateway self-hosted)
+
+[9Router](https://9router.com/) adalah gateway kompatibel-OpenAI yang merutekan ke banyak provider di belakang satu endpoint. Karena OpenAI-compatible, cukup pakai provider `openai`:
+
+```env
+LLM_PROVIDER=openai
+LLM_BASE_URL=http://IP_9ROUTER:20128/v1    # default 9Router: port 20128, path /v1
+LLM_MODEL=kr/claude-sonnet-4.5             # alias/combo model dari dashboard 9Router
+LLM_API_KEY=<key dari dashboard 9Router>
+```
+
+- Jika 9Router jalan **di host yang sama** dengan container WagAgent, pakai `LLM_BASE_URL=http://host.docker.internal:20128/v1` (compose sudah menyetel `extra_hosts` untuk ini).
+- Jika 9Router jalan di **VM lain**, pakai IP VM itu dan pastikan port 20128 terbuka di firewall.
+- Model id (`kr/claude-sonnet-4.5`, dll.) ambil dari dashboard 9Router; cek lagi via `!status`.
+
+### Contoh: Qwen 1.7B di VM lain
+
+Serve Qwen pakai salah satu server berikut **di VM model**, pastikan bind ke `0.0.0.0` (bukan `127.0.0.1`) agar bisa diakses dari VM WagAgent:
+
+```bash
+# Opsi A — vLLM (OpenAI-compatible server bawaan)
+python -m vllm.entrypoints.openai.api_server \
+  --model Qwen/Qwen3-1.7B --host 0.0.0.0 --port 8000
+# -> LLM_BASE_URL=http://IP_VM_MODEL:8000/v1   LLM_MODEL=Qwen/Qwen3-1.7B
+
+# Opsi B — Ollama (set OLLAMA_HOST=0.0.0.0 agar listen ke jaringan)
+ollama pull qwen3:1.7b
+# -> LLM_BASE_URL=http://IP_VM_MODEL:11434/v1  LLM_MODEL=qwen3:1.7b
+```
+
+Lalu di `.env` WagAgent:
+
+```env
+LLM_PROVIDER=openai
+LLM_BASE_URL=http://IP_VM_MODEL:8000/v1
+LLM_MODEL=Qwen/Qwen3-1.7B
+LLM_API_KEY=                 # kosongkan bila server tak minta key
+LLM_MAX_INPUT_CHARS=12000    # penting: Qwen 1.7B context kecil, potong transkrip panjang
+```
+
+Cek provider aktif lewat perintah `!status` (menampilkan model & endpoint).
+
+> **Catatan jaringan:** WagAgent hanya melakukan koneksi **keluar** ke VM model, jadi cukup pastikan port model (mis. 8000/11434) terbuka di firewall/security group VM model dan server-nya listen di `0.0.0.0`. Tidak perlu network Docker khusus antar-VM.
+>
+> **Catatan kualitas:** Qwen 1.7B jauh lebih kecil dari Claude — kualitas ringkasan lebih sederhana dan context window kecil (±32K token). Untuk grup ramai, set `LLM_MAX_INPUT_CHARS` agar transkrip panjang otomatis dipangkas (ambil pesan terbaru). Anda bisa mulai dengan Claude lalu pindah ke Qwen kapan saja hanya dengan mengganti env + restart container.
+
 ## Isolasi (tidak bentrok dengan stack lain di VM)
 
 WagAgent dirancang berdiri sendiri dan aman dijalankan berdampingan dengan container/compose lain:

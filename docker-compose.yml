@@ -19,6 +19,10 @@ services:
       - ./data:/app/data
     # tty agar QR code (yang digambar ke terminal) tampil rapi di `docker compose logs`.
     tty: true
+    # Agar container bisa menjangkau service di HOST yang sama (mis. 9Router/Ollama
+    # yang listen di host port) lewat http://host.docker.internal:PORT
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # Hanya pakai network milik stack ini. Tidak publish port apa pun
     # (aplikasi hanya koneksi keluar), jadi tidak ada bentrok port.
     networks:
