@@ -6,6 +6,24 @@
 name: wagagent
 
 services:
+  # Gateway LLM 9Router. WagAgent memanggilnya via http://9router:20128/v1
+  9router:
+    image: ${NINEROUTER_IMAGE:-decolua/9router:latest}
+    container_name: 9router
+    restart: unless-stopped
+    environment:
+      - PORT=20128
+      - HOSTNAME=0.0.0.0
+      - NODE_ENV=production
+      - DATA_DIR=/app/data
+    volumes:
+      - ./9router-data:/app/data
+    networks:
+      - wagagent
+    # Dashboard hanya ke localhost (akses via SSH tunnel bila di VM).
+    ports:
+      - "127.0.0.1:20128:20128"
+
   wagagent:
     build:
       context: .
@@ -13,16 +31,14 @@ services:
     image: wagagent:local
     container_name: wagagent
     restart: unless-stopped
+    depends_on:
+      - 9router
     env_file:
       - .env
     volumes:
       - ./data:/app/data
     # tty agar QR code (yang digambar ke terminal) tampil rapi di `docker compose logs`.
     tty: true
-    # Agar container bisa menjangkau service di HOST yang sama (mis. 9Router/Ollama
-    # yang listen di host port) lewat http://host.docker.internal:PORT
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     # Hanya pakai network milik stack ini. Tidak publish port apa pun
     # (aplikasi hanya koneksi keluar), jadi tidak ada bentrok port.
     networks:

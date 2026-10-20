@@ -159,20 +159,30 @@ WagAgent punya lapisan provider, jadi mesin ringkasnya bisa diganti **tanpa ubah
 | `anthropic` | Claude (default) | `ANTHROPIC_API_KEY`, `CLAUDE_MODEL` |
 | `openai` | Qwen lokal, **9Router**, atau endpoint apa pun yang kompatibel OpenAI (`/v1/chat/completions`) | `LLM_BASE_URL`, `LLM_MODEL`, (opsional) `LLM_API_KEY`, `LLM_MAX_INPUT_CHARS` |
 
-### Contoh: 9Router (gateway self-hosted)
+### Contoh: 9Router (gateway self-hosted, satu compose)
 
-[9Router](https://9router.com/) adalah gateway kompatibel-OpenAI yang merutekan ke banyak provider di belakang satu endpoint. Karena OpenAI-compatible, cukup pakai provider `openai`:
+[9Router](https://9router.com/) adalah gateway kompatibel-OpenAI yang merutekan ke banyak provider. Image `decolua/9router` **sudah dimasukkan sebagai service di compose**, jadi cukup satu `docker compose up` untuk menjalankan WagAgent + 9Router bersama di **satu VM**. WagAgent memanggilnya lewat **nama service**:
 
 ```env
 LLM_PROVIDER=openai
-LLM_BASE_URL=http://IP_9ROUTER:20128/v1    # default 9Router: port 20128, path /v1
+LLM_BASE_URL=http://9router:20128/v1       # nama service di network compose
 LLM_MODEL=kr/claude-sonnet-4.5             # alias/combo model dari dashboard 9Router
 LLM_API_KEY=<key dari dashboard 9Router>
 ```
 
-- Jika 9Router jalan **di host yang sama** dengan container WagAgent, pakai `LLM_BASE_URL=http://host.docker.internal:20128/v1` (compose sudah menyetel `extra_hosts` untuk ini).
-- Jika 9Router jalan di **VM lain**, pakai IP VM itu dan pastikan port 20128 terbuka di firewall.
-- Model id (`kr/claude-sonnet-4.5`, dll.) ambil dari dashboard 9Router; cek lagi via `!status`.
+**Setup dashboard 9Router** (untuk daftarkan provider & buat API key):
+- Dashboard di-bind ke `127.0.0.1:20128` (tidak diekspos publik). Akses dari laptop via SSH tunnel:
+  ```bash
+  ssh -L 20128:localhost:20128 user@IP_VM
+  # lalu buka http://localhost:20128 di browser laptop
+  ```
+- Di dashboard: tambahkan provider (OAuth/API key), buat **API key** → pakai nilainya di `LLM_API_KEY`, dan catat **model id** → pakai di `LLM_MODEL`.
+- Data 9Router persisten di `./9router-data` (folder deploy).
+
+Varian lain:
+- **9Router di VM terpisah** → `LLM_BASE_URL=http://IP_9ROUTER:20128/v1` (hapus service `9router` dari compose, buka port 20128 di firewall VM itu).
+- Override image: set `NINEROUTER_IMAGE` di `.env`.
+- Cek endpoint/model aktif kapan saja via `!status`.
 
 ### Contoh: Qwen 1.7B di VM lain
 

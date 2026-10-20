@@ -1,6 +1,7 @@
 node_modules/
 dist/
 data/
+9router-data/
 *.log
 npm-debug.log*
 .env
