@@ -144,7 +144,8 @@ export class WagBot {
 
   /** Apakah pengirim boleh menjalankan perintah. */
   private isAuthorized(fromMe: boolean, senderJid: string): boolean {
-    if (fromMe) return true;
+    // Nomor bot sendiri: hanya jika ALLOW_SELF_COMMANDS tidak dimatikan.
+    if (fromMe) return config.allowSelfCommands;
     if (config.ownerJids.length === 0) return false;
     const num = senderJid.split("@")[0]?.split(":")[0] ?? "";
     return config.ownerJids.some((o) => o.replace(/\D/g, "") === num.replace(/\D/g, ""));
@@ -206,9 +207,18 @@ export class WagBot {
    * Ringkas SEMUA grup (kecuali yang di-exclude) lalu kirim ke target.
    * Dipakai oleh penjadwal harian dan perintah "!summary all".
    */
-  async runSummaries(windowHours = 24): Promise<SummaryRunResult> {
+  /**
+   * @param deliverTo  jika diisi (mis. perintah manual), hasil dikirim ke chat ini.
+   *                   jika kosong (mis. jadwal harian), pakai summaryTarget,
+   *                   lalu DM owner pertama, lalu chat bot sendiri.
+   */
+  async runSummaries(windowHours = 24, deliverTo?: string): Promise<SummaryRunResult> {
     const settings = settingsStore.get();
-    const target = settings.summaryTarget || this.getOwnJid();
+    const ownerDm = config.ownerJids[0]
+      ? `${config.ownerJids[0].replace(/\D/g, "")}@s.whatsapp.net`
+      : "";
+    const target =
+      deliverTo || settings.summaryTarget || ownerDm || this.getOwnJid();
     if (!target) {
       logger.error("Target ringkasan tidak diketahui (own JID kosong).");
       return { total: 0, summarized: 0, empty: 0, target: "", noGroups: true };
