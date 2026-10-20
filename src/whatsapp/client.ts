@@ -124,7 +124,10 @@ export class WagBot {
           raw: text,
         });
       } else {
-        logger.debug({ senderJid }, "Perintah diabaikan (tidak diizinkan).");
+        logger.warn(
+          { senderJid, fromMe },
+          "Perintah diabaikan (pengirim tidak diizinkan). Jika ini nomor Anda, tambahkan ke OWNER_JIDS.",
+        );
       }
       return;
     }
