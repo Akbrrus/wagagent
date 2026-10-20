@@ -1,8 +1,15 @@
-# Compose untuk DEVELOPMENT / build lokal.
-# Build image dari source dan jalankan. QR muncul di log container.
-
-# Pin nama project -> semua resource (network, dll) di-namespace "wagagent_..."
-# berapapun nama foldernya, jadi tidak tercampur stack lain.
+# Satu compose untuk DUA mode:
+#
+#   A) BUILD dari source (laptop / VM manual):
+#        docker compose up -d --build
+#      -> image dibangun lokal (tag: wagagent:local). WAGAGENT_IMAGE tidak perlu diisi.
+#
+#   B) PULL image dari Docker Hub (jalur CI/CD):
+#        set WAGAGENT_IMAGE di .env, lalu:
+#        docker compose pull && docker compose up -d
+#      -> image ditarik dari registry, tidak build.
+#
+# Pin nama project -> resource di-namespace "wagagent_...", tidak tercampur stack lain.
 name: wagagent
 
 services:
@@ -23,15 +30,21 @@ services:
       - ./9router-data:/app/data
     networks:
       - wagagent
-    # Dashboard hanya ke localhost (akses via SSH tunnel bila di VM).
+    # Dashboard hanya diikat ke localhost (akses via SSH tunnel), TIDAK ke publik.
     ports:
       - "127.0.0.1:20128:20128"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   wagagent:
     build:
       context: .
       dockerfile: Dockerfile
-    image: wagagent:local
+    # Mode A (build): default "wagagent:local". Mode B (pull): isi WAGAGENT_IMAGE di .env.
+    image: ${WAGAGENT_IMAGE:-wagagent:local}
     container_name: wagagent
     restart: unless-stopped
     depends_on:
@@ -40,15 +53,17 @@ services:
       - .env
     volumes:
       - ./data:/app/data
-    # tty agar QR code (yang digambar ke terminal) tampil rapi di `docker compose logs`.
+    # tty agar QR code (digambar ke terminal) tampil rapi di `docker compose logs`.
     tty: true
-    # Hanya pakai network milik stack ini. Tidak publish port apa pun
-    # (aplikasi hanya koneksi keluar), jadi tidak ada bentrok port.
     networks:
       - wagagent
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   wagagent:
-    # Tanpa "name:" eksplisit -> Compose memberi prefix project: "wagagent_wagagent".
-    # Terisolasi dari network stack/compose lain di host yang sama.
+    # Nama efektif "wagagent_wagagent"; terisolasi dari network stack lain.
     driver: bridge

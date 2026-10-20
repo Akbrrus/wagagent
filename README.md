@@ -98,45 +98,45 @@ Alurnya: **push ke `main`** → GitHub Actions build image & push ke Docker Hub 
 | `VM_USER` | User SSH di VM (mis. `ubuntu`) |
 | `VM_SSH_KEY` | **Private key** SSH (isi file key, bukan path) |
 | `VM_PORT` | Port SSH (opsional, default `22`) |
-| `DEPLOY_DIR` | Folder deploy di VM (opsional, default `/opt/wagagent`) |
+| `DEPLOY_DIR` | Folder **checkout repo** di VM (opsional, default `~/wagagent`) |
 
 > Buat repo di Docker Hub bernama `wagagent` (boleh private). Image akan jadi `docker.io/<username>/wagagent`.
 
 ### 3b. Persiapan di VM (sekali saja)
 
-Install Docker + Compose plugin, lalu siapkan folder deploy:
+Install Docker + Compose plugin, lalu **clone repo** ini di VM (dipakai sebagai folder deploy):
 
 ```bash
-sudo mkdir -p /opt/wagagent/data
-cd /opt/wagagent
-
-# Salin file compose produksi + env (dari folder deploy/ repo ini).
-# docker-compose.yml → /opt/wagagent/docker-compose.yml
-# deploy/.env.example → /opt/wagagent/.env  (lalu edit)
+git clone git@github.com:USERNAME/wagagent.git ~/wagagent
+cd ~/wagagent
+cp .env.example .env
+nano .env
 ```
 
-Isi `/opt/wagagent/.env`:
+Di `.env`, untuk **mode PULL** (CI/CD), isi `WAGAGENT_IMAGE` + konfigurasi LLM:
 
 ```env
 WAGAGENT_IMAGE=docker.io/USERNAME/wagagent:latest
-ANTHROPIC_API_KEY=sk-ant-...
-CLAUDE_MODEL=claude-haiku-5-5
+LLM_PROVIDER=openai
+LLM_BASE_URL=http://9router:20128/v1
+LLM_MODEL=kr/claude-sonnet-4.5
+LLM_API_KEY=<key dari dashboard 9Router>
+NINEROUTER_PASSWORD=<password dashboard pilihan Anda>
 TZ=Asia/Jakarta
-# ... (lihat deploy/.env.example)
 ```
 
-Pastikan user VM bisa `docker login` (image private) — GitHub Action sudah melakukan login otomatis saat deploy.
+> Deploy memakai **satu `docker-compose.yml`** yang sama. Karena `WAGAGENT_IMAGE` diisi, Compose menarik image dari Docker Hub (tidak build). Kalau mau build langsung di VM, kosongkan `WAGAGENT_IMAGE` dan jalankan `docker compose up -d --build`.
 
 ### 3c. Scan QR pertama di VM
 
-Karena WhatsApp butuh scan QR, setelah container jalan pertama kali:
+Setelah container jalan pertama kali:
 
 ```bash
-cd /opt/wagagent
+cd ~/wagagent
 docker compose logs -f wagagent   # QR muncul di log → scan
 ```
 
-Setelah tertaut, sesi tersimpan di `/opt/wagagent/data/auth` dan bertahan di deploy berikutnya (folder `data` tidak ikut ter-overwrite).
+Sesi tersimpan di `~/wagagent/data/auth` dan bertahan di deploy berikutnya (folder `data` tidak ter-overwrite).
 
 ### 3d. Push = deploy
 
@@ -146,7 +146,7 @@ git commit -m "update"
 git push origin main
 ```
 
-GitHub Actions akan build, push, dan deploy otomatis ke VM. 🎉
+GitHub Actions: build image → push ke Docker Hub → SSH ke VM → `git pull` + `docker compose pull` + `up -d`. Set secret `DEPLOY_DIR=~/wagagent` (atau path clone Anda). 🎉
 
 ---
 
@@ -177,7 +177,7 @@ LLM_API_KEY=<key dari dashboard 9Router>
   # lalu buka http://localhost:20128 di browser laptop
   ```
 - Di dashboard: tambahkan provider (OAuth/API key), buat **API key** → pakai nilainya di `LLM_API_KEY`, dan catat **model id** → pakai di `LLM_MODEL`.
-- Data 9Router persisten di `./9router-data` (folder deploy).
+- Data 9Router persisten di `./9router-data` (folder repo).
 
 Varian lain:
 - **9Router di VM terpisah** → `LLM_BASE_URL=http://IP_9ROUTER:20128/v1` (hapus service `9router` dari compose, buka port 20128 di firewall VM itu).
@@ -247,17 +247,18 @@ src/
     settings.ts         # pengaturan runtime (JSON persisten)
     messageStore.ts     # buffer pesan per grup (JSON persisten)
   summary/
-    summarizer.ts       # panggilan Claude Haiku
+    summarizer.ts       # bangun prompt + potong transkrip
+    llmClient.ts        # pilih provider: Claude / OpenAI-compatible (9Router, Qwen, dll)
     scheduler.ts        # cron ringkasan harian
 .github/workflows/ci-cd.yml   # build → Docker Hub → deploy VM
 Dockerfile                    # multi-stage build
-docker-compose.yml            # build lokal
-deploy/                       # compose + env + script untuk VM
+docker-compose.yml            # SATU compose: build (--build) atau pull (WAGAGENT_IMAGE)
+.env.example                  # template konfigurasi (salin ke .env)
 ```
 
 ## Troubleshooting
 
 - **QR tidak muncul / "logout":** hapus folder `data/auth` lalu restart untuk scan ulang.
-- **`cache_read` nol / ringkasan error auth:** cek `ANTHROPIC_API_KEY`.
+- **Ringkasan "⚠️ Gagal (error LLM)":** cek provider aktif via `!status`; untuk 9Router/OpenAI cek `LLM_BASE_URL`/`LLM_MODEL`/`LLM_API_KEY` & `docker compose logs -f wagagent`; untuk Claude cek `ANTHROPIC_API_KEY`.
 - **Perintah tak direspon:** pastikan dikirim dari akun yang discan, atau daftarkan nomor di `OWNER_JIDS`.
 - **Nomor sering disconnect:** jangan kirim pesan massal; gunakan nomor sekunder.
