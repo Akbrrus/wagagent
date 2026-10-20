@@ -1,0 +1,16 @@
+# Compose untuk DEVELOPMENT / build lokal.
+# Build image dari source dan jalankan. QR muncul di log container.
+services:
+  wagagent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wagagent:local
+    container_name: wagagent
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    # tty agar QR code (yang digambar ke terminal) tampil rapi di `docker compose logs`.
+    tty: true
