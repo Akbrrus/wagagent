@@ -18,6 +18,10 @@ services:
     volumes:
       - ./data:/app/data
     tty: true
+    # Agar container bisa menjangkau service di HOST yang sama (mis. 9Router)
+    # lewat http://host.docker.internal:PORT
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - wagagent
     logging:

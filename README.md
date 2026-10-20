@@ -157,7 +157,22 @@ WagAgent punya lapisan provider, jadi mesin ringkasnya bisa diganti **tanpa ubah
 | `LLM_PROVIDER` | Dipakai untuk | Env yang diisi |
 |---|---|---|
 | `anthropic` | Claude (default) | `ANTHROPIC_API_KEY`, `CLAUDE_MODEL` |
-| `openai` | Qwen lokal / endpoint apa pun yang kompatibel OpenAI (`/v1/chat/completions`) | `LLM_BASE_URL`, `LLM_MODEL`, (opsional) `LLM_API_KEY`, `LLM_MAX_INPUT_CHARS` |
+| `openai` | Qwen lokal, **9Router**, atau endpoint apa pun yang kompatibel OpenAI (`/v1/chat/completions`) | `LLM_BASE_URL`, `LLM_MODEL`, (opsional) `LLM_API_KEY`, `LLM_MAX_INPUT_CHARS` |
+
+### Contoh: 9Router (gateway self-hosted)
+
+[9Router](https://9router.com/) adalah gateway kompatibel-OpenAI yang merutekan ke banyak provider di belakang satu endpoint. Karena OpenAI-compatible, cukup pakai provider `openai`:
+
+```env
+LLM_PROVIDER=openai
+LLM_BASE_URL=http://IP_9ROUTER:20128/v1    # default 9Router: port 20128, path /v1
+LLM_MODEL=kr/claude-sonnet-4.5             # alias/combo model dari dashboard 9Router
+LLM_API_KEY=<key dari dashboard 9Router>
+```
+
+- Jika 9Router jalan **di host yang sama** dengan container WagAgent, pakai `LLM_BASE_URL=http://host.docker.internal:20128/v1` (compose sudah menyetel `extra_hosts` untuk ini).
+- Jika 9Router jalan di **VM lain**, pakai IP VM itu dan pastikan port 20128 terbuka di firewall.
+- Model id (`kr/claude-sonnet-4.5`, dll.) ambil dari dashboard 9Router; cek lagi via `!status`.
 
 ### Contoh: Qwen 1.7B di VM lain
 
