@@ -57,10 +57,16 @@ Kirim dari chat Anda (akun yang discan selalu diizinkan; nomor lain harus didaft
 | `!setlang id` / `!setlang en` | Bahasa ringkasan |
 | `!on` / `!off` | Aktif/matikan ringkasan otomatis |
 | `!settarget` | Jadikan chat ini sebagai tujuan ringkasan (default: chat pribadi Anda) |
-| `!exclude` / `!include` | Kecualikan / ikutkan grup ini dari ringkasan otomatis |
-| `!groups` | Daftar grup yang dipantau |
+| `!allgroups` | Tampilkan **semua grup + ID-nya** untuk di-copy |
+| `!whitelist <id> [id...]` | **Hanya** ringkas grup dengan ID tsb (aktifkan mode whitelist). Bisa dari chat mana saja. |
+| `!unwhitelist <id> [id...]` | Keluarkan grup dari whitelist |
+| `!watchall` | Kembali ringkas semua grup (mode default) |
+| `!exclude` / `!include` | (mode `all`) Kecualikan / ikutkan grup ini |
+| `!groups` | Daftar grup yang punya aktivitas tersimpan |
 
-> **Tip:** Chat ke diri sendiri (Pesan ke diri sendiri) adalah target default. Untuk kirim ringkasan ke grup/kontak lain, ketik `!settarget` di chat tujuan tersebut.
+> **Dua konsep terpisah:**
+> - **Di mana ringkasan dikirim** → `!settarget`. Mau ringkasan muncul di satu grup khusus? Buka grup itu, ketik `!settarget`. Default-nya chat ke diri sendiri (Pesan ke diri sendiri).
+> - **Grup mana yang diringkas** → daftarkan via ID: ketik `!allgroups` untuk melihat ID semua grup, lalu `!whitelist <id1> <id2> ...` (bisa dari chat mana saja, tanpa masuk grup). Atau pakai mode `all` + `!exclude`. Cek mode aktif lewat `!status`.
 
 ---
 

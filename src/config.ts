@@ -62,8 +62,16 @@ export const defaultSettings = {
    * (Pesan ke diri sendiri). Bisa diubah ke grup/kontak lewat !settarget.
    */
   summaryTarget: "" as string,
-  /** Grup yang di-exclude dari ringkasan otomatis (daftar JID). */
+  /** Grup yang di-exclude dari ringkasan otomatis (dipakai saat watchMode = "all"). */
   excludedGroups: [] as string[],
+  /**
+   * Mode pemilihan grup yang diringkas:
+   * - "all"       : semua grup, kecuali yang ada di excludedGroups.
+   * - "whitelist" : HANYA grup yang ada di whitelistGroups.
+   */
+  watchMode: "all" as "all" | "whitelist",
+  /** Daftar JID grup yang di-whitelist (dipakai saat watchMode = "whitelist"). */
+  whitelistGroups: [] as string[],
 };
 
 export type Settings = typeof defaultSettings;

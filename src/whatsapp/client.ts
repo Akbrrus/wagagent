@@ -161,6 +161,19 @@ export class WagBot {
     }
   }
 
+  /** Ambil SEMUA grup yang diikuti akun ini (langsung dari WhatsApp). */
+  async listAllGroups(): Promise<{ jid: string; subject: string }[]> {
+    if (!this.sock) throw new Error("Socket belum siap.");
+    const all = await this.sock.groupFetchAllParticipating();
+    const groups = Object.values(all).map((g) => ({
+      jid: g.id,
+      subject: g.subject || g.id,
+    }));
+    // Cache sekalian supaya nama grup langsung tersedia untuk ringkasan.
+    for (const g of groups) messageStore.setGroupName(g.jid, g.subject);
+    return groups.sort((a, b) => a.subject.localeCompare(b.subject));
+  }
+
   getOwnJid(): string {
     return this.sock?.user?.id ? jidNormalizedUser(this.sock.user.id) : "";
   }
@@ -201,9 +214,14 @@ export class WagBot {
       return;
     }
 
-    const groups = messageStore
-      .listGroups()
-      .filter((jid) => !settings.excludedGroups.includes(jid));
+    const groups =
+      settings.watchMode === "whitelist"
+        ? // Hanya grup yang di-whitelist (walau belum ada pesan tersimpan).
+          settings.whitelistGroups
+        : // Semua grup yang punya aktivitas, kecuali yang di-exclude.
+          messageStore
+            .listGroups()
+            .filter((jid) => !settings.excludedGroups.includes(jid));
 
     if (groups.length === 0) {
       await this.sendText(
