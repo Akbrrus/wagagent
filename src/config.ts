@@ -81,6 +81,12 @@ export const config = {
   /** Prefix perintah. */
   commandPrefix: process.env.COMMAND_PREFIX ?? "!",
 
+  /**
+   * Izinkan nomor bot (akun yang discan) memerintah dirinya sendiri (fromMe).
+   * Set "false" untuk pola bot khusus: perintah HANYA dari OWNER_JIDS.
+   */
+  allowSelfCommands: (process.env.ALLOW_SELF_COMMANDS ?? "true") !== "false",
+
   logLevel: process.env.LOG_LEVEL ?? "info",
 } as const;
 
