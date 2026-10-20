@@ -206,12 +206,12 @@ export class WagBot {
    * Ringkas SEMUA grup (kecuali yang di-exclude) lalu kirim ke target.
    * Dipakai oleh penjadwal harian dan perintah "!summary all".
    */
-  async runSummaries(windowHours = 24): Promise<void> {
+  async runSummaries(windowHours = 24): Promise<SummaryRunResult> {
     const settings = settingsStore.get();
     const target = settings.summaryTarget || this.getOwnJid();
     if (!target) {
       logger.error("Target ringkasan tidak diketahui (own JID kosong).");
-      return;
+      return { total: 0, summarized: 0, empty: 0, target: "", noGroups: true };
     }
 
     const groups =
@@ -227,10 +227,10 @@ export class WagBot {
       await this.sendText(
         target,
         settings.language === "id"
-          ? "Belum ada aktivitas grup untuk diringkas."
-          : "No group activity to summarize yet.",
+          ? "Belum ada grup yang dipantau untuk diringkas. Pakai !whitelist / !watchall."
+          : "No groups to summarize yet. Use !whitelist / !watchall.",
       );
-      return;
+      return { total: 0, summarized: 0, empty: 0, target, noGroups: true };
     }
 
     const header =
@@ -240,13 +240,45 @@ export class WagBot {
     await this.sendText(target, header);
 
     const since = Date.now() - windowHours * 3600_000;
+    let summarized = 0;
+    let empty = 0;
     for (const jid of groups) {
       const name = messageStore.getGroupName(jid);
       const messages = messageStore.getMessagesSince(jid, since);
+      if (messages.length === 0) {
+        empty++;
+        await this.sendText(
+          target,
+          settings.language === "id"
+            ? `*📋 ${name}*\n_Tidak ada pesan baru dalam ${windowHours} jam terakhir._`
+            : `*📋 ${name}*\n_No new messages in the last ${windowHours}h._`,
+        );
+        continue;
+      }
+      summarized++;
       const summary = await summarizeGroup(name, messages, settings.language);
-      await this.sendText(target, `*📋 ${name}*\n${summary}`);
+      await this.sendText(target, `*📋 ${name}* _(${messages.length} pesan)_\n${summary}`);
     }
 
+    // Catatan penutup ke target.
+    await this.sendText(
+      target,
+      settings.language === "id"
+        ? `✅ Selesai. ${summarized} grup diringkas, ${empty} grup tanpa pesan baru.`
+        : `✅ Done. ${summarized} summarized, ${empty} with no new messages.`,
+    );
+
     messageStore.prune();
+    return { total: groups.length, summarized, empty, target, noGroups: false };
   }
+}
+
+export interface SummaryRunResult {
+  total: number;
+  summarized: number;
+  empty: number;
+  /** JID tujuan pengiriman ringkasan. */
+  target: string;
+  /** true bila tidak ada grup yang dipantau sama sekali. */
+  noGroups: boolean;
 }

@@ -84,7 +84,16 @@ export async function handleCommand(
       case "ringkas": {
         if ((ctx.args[1] ?? "").toLowerCase() === "all") {
           await reply("⏳ Membuat ringkasan semua grup...");
-          await bot.runSummaries();
+          const r = await bot.runSummaries();
+          if (!r.noGroups) {
+            const sameChat = r.target === ctx.chatJid;
+            await reply(
+              `✅ Ringkasan selesai: *${r.summarized}* grup diringkas, *${r.empty}* tanpa pesan baru.` +
+                (sameChat
+                  ? ""
+                  : `\n📨 Hasilnya dikirim ke *chat tujuan* (default: "Pesan ke diri sendiri"). Buka chat itu untuk melihatnya — atau ketik ${P}settarget di chat ini agar ringkasan dikirim ke sini.`),
+            );
+          }
         } else if (ctx.isGroup) {
           await reply("⏳ Membuat ringkasan grup ini...");
           await bot.summarizeSingle(ctx.chatJid, ctx.chatJid);
