@@ -3,6 +3,7 @@ import { logger } from "../logger.js";
 import { messageStore } from "../store/messageStore.js";
 import { settingsStore } from "../store/settings.js";
 import { reschedule } from "../summary/scheduler.js";
+import { providerLabel } from "../summary/llmClient.js";
 import type { WagBot } from "./client.js";
 
 export interface CommandContext {
@@ -101,7 +102,7 @@ export async function handleCommand(
             `Jam ringkasan: *${s.summaryTime}* (${s.timezone})\n` +
             `Otomatis: *${s.scheduleEnabled ? "ON" : "OFF"}*\n` +
             `Bahasa: *${s.language}*\n` +
-            `Model: *${config.claudeModel}*\n` +
+            `LLM: *${providerLabel()}*\n` +
             `Target: ${target}\n` +
             `Mode grup: *${s.watchMode}*\n` +
             (s.watchMode === "whitelist"

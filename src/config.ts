@@ -17,16 +17,53 @@ function required(name: string): string {
 /** Direktori data persisten (auth WhatsApp, settings, buffer pesan). */
 export const DATA_DIR = path.resolve(process.env.DATA_DIR ?? "./data");
 
+/**
+ * Provider LLM untuk ringkasan:
+ * - "anthropic" : Claude (pakai ANTHROPIC_API_KEY + CLAUDE_MODEL).
+ * - "openai"    : endpoint kompatibel-OpenAI, mis. server Qwen lokal
+ *                 (vLLM / Ollama / llama.cpp / LM Studio / TGI) lewat LLM_BASE_URL.
+ */
+export type LlmProvider = "anthropic" | "openai";
+const llmProvider = (process.env.LLM_PROVIDER ?? "anthropic").toLowerCase() as LlmProvider;
+
+// Validasi env sesuai provider yang dipilih.
+if (llmProvider === "anthropic") {
+  required("ANTHROPIC_API_KEY");
+} else if (llmProvider === "openai") {
+  required("LLM_BASE_URL");
+  required("LLM_MODEL");
+} else {
+  throw new Error(`LLM_PROVIDER tidak valid: "${llmProvider}". Pilih "anthropic" atau "openai".`);
+}
+
 export const config = {
   dataDir: DATA_DIR,
   authDir: path.join(DATA_DIR, "auth"),
   settingsFile: path.join(DATA_DIR, "settings.json"),
   storeFile: path.join(DATA_DIR, "messages.json"),
 
+  /** Provider LLM aktif. */
+  llmProvider,
+
+  // --- Provider: Anthropic (Claude) ---
   /** API key Claude (Anthropic). */
-  anthropicApiKey: required("ANTHROPIC_API_KEY"),
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
   /** Model Claude untuk ringkasan. Default: Haiku terbaru. */
   claudeModel: process.env.CLAUDE_MODEL ?? "claude-haiku-5-5",
+
+  // --- Provider: OpenAI-compatible (mis. Qwen lokal) ---
+  /** Base URL endpoint, mis. http://192.168.1.50:8000/v1 (vLLM) atau http://192.168.1.50:11434/v1 (Ollama). */
+  llmBaseUrl: (process.env.LLM_BASE_URL ?? "").replace(/\/+$/, ""),
+  /** API key endpoint (banyak server lokal tidak butuh; isi "sk-noauth" bila perlu). */
+  llmApiKey: process.env.LLM_API_KEY ?? "",
+  /** Nama model di server, mis. "Qwen/Qwen3-1.7B" (vLLM) atau "qwen3:1.7b" (Ollama). */
+  llmModel: process.env.LLM_MODEL ?? "",
+  /**
+   * Batas karakter transkrip yang dikirim ke model (0 = tanpa batas).
+   * Berguna untuk model konteks kecil seperti Qwen 1.7B; jika transkrip lebih
+   * panjang, hanya pesan TERBARU yang dikirim.
+   */
+  llmMaxInputChars: Number(process.env.LLM_MAX_INPUT_CHARS ?? "0"),
 
   /**
    * Daftar nomor/JID yang boleh menjalankan perintah "!", dipisah koma.

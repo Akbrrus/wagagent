@@ -1,9 +1,7 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config.js";
 import { logger } from "../logger.js";
 import type { StoredMessage } from "../store/messageStore.js";
-
-const client = new Anthropic({ apiKey: config.anthropicApiKey });
+import { chatComplete } from "./llmClient.js";
 
 const SYSTEM_PROMPT_ID = `Kamu adalah asisten yang meringkas percakapan grup WhatsApp.
 Tugasmu: baca transkrip chat lalu buat ringkasan yang padat dan mudah dibaca.
@@ -28,16 +26,29 @@ Rules:
 - Max ~10 bullets. If the chat is quiet, briefly say there wasn't much activity.`;
 
 function buildTranscript(messages: StoredMessage[]): string {
-  return messages
-    .map((m) => {
-      const time = new Date(m.ts).toLocaleTimeString("id-ID", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      const name = m.senderName || m.sender.split("@")[0];
-      return `[${time}] ${name}: ${m.text}`;
-    })
-    .join("\n");
+  const lines = messages.map((m) => {
+    const time = new Date(m.ts).toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const name = m.senderName || m.sender.split("@")[0];
+    return `[${time}] ${name}: ${m.text}`;
+  });
+
+  let transcript = lines.join("\n");
+
+  // Untuk model konteks kecil (mis. Qwen 1.7B): jika terlalu panjang,
+  // simpan hanya bagian TERBARU agar muat di context window.
+  const limit = config.llmMaxInputChars;
+  if (limit > 0 && transcript.length > limit) {
+    transcript = transcript.slice(-limit);
+    const firstNewline = transcript.indexOf("\n");
+    if (firstNewline > 0) transcript = transcript.slice(firstNewline + 1);
+    transcript = `…(pesan lama dipotong)…\n${transcript}`;
+    logger.warn({ limit }, "Transkrip dipotong agar muat di context window model.");
+  }
+
+  return transcript;
 }
 
 /**
@@ -56,41 +67,18 @@ export async function summarizeGroup(
 
   const transcript = buildTranscript(messages);
   const system = language === "id" ? SYSTEM_PROMPT_ID : SYSTEM_PROMPT_EN;
-
-  const userPrompt =
+  const user =
     language === "id"
       ? `Berikut transkrip chat grup "${groupName}" (${messages.length} pesan). Buat ringkasannya:\n\n${transcript}`
       : `Here is the chat transcript of group "${groupName}" (${messages.length} messages). Summarize it:\n\n${transcript}`;
 
   try {
-    const response = await client.messages.create({
-      model: config.claudeModel,
-      max_tokens: 4000,
-      system,
-      messages: [{ role: "user", content: userPrompt }],
-    });
-
-    const text = response.content
-      .filter((b): b is Anthropic.TextBlock => b.type === "text")
-      .map((b) => b.text)
-      .join("\n")
-      .trim();
-
+    const text = await chatComplete({ system, user, maxTokens: 4000 });
     return text || (language === "id" ? "_Ringkasan kosong._" : "_Empty summary._");
   } catch (err) {
-    logger.error({ err, groupName }, "Gagal membuat ringkasan via Claude.");
-    if (err instanceof Anthropic.AuthenticationError) {
-      return language === "id"
-        ? "⚠️ Gagal: API key Claude tidak valid."
-        : "⚠️ Failed: invalid Claude API key.";
-    }
-    if (err instanceof Anthropic.RateLimitError) {
-      return language === "id"
-        ? "⚠️ Gagal: kena rate limit Claude, coba lagi nanti."
-        : "⚠️ Failed: Claude rate limit, try again later.";
-    }
+    logger.error({ err, groupName, provider: config.llmProvider }, "Gagal membuat ringkasan.");
     return language === "id"
-      ? "⚠️ Gagal membuat ringkasan (error API)."
-      : "⚠️ Failed to create summary (API error).";
+      ? "⚠️ Gagal membuat ringkasan (error LLM). Cek log & konfigurasi provider."
+      : "⚠️ Failed to create summary (LLM error). Check logs & provider config.";
   }
 }
