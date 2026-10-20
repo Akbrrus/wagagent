@@ -67,8 +67,11 @@ jobs:
           port: ${{ secrets.VM_PORT || 22 }}
           script: |
             set -euo pipefail
-            cd ${{ secrets.DEPLOY_DIR || '/opt/wagagent' }}
+            # DEPLOY_DIR = folder checkout repo di VM (mis. ~/wagagent).
+            cd ${{ secrets.DEPLOY_DIR || '~/wagagent' }}
+            git pull --ff-only
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            # Mode PULL: WAGAGENT_IMAGE di .env mengarah ke image Docker Hub.
             docker compose pull
             docker compose up -d
             docker image prune -f
