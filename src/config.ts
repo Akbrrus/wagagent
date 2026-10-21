@@ -60,10 +60,18 @@ export const config = {
   llmModel: process.env.LLM_MODEL ?? "",
   /**
    * Batas karakter transkrip yang dikirim ke model (0 = tanpa batas).
-   * Berguna untuk model konteks kecil seperti Qwen 1.7B; jika transkrip lebih
-   * panjang, hanya pesan TERBARU yang dikirim.
+   * Untuk model di CPU, set mis. 6000 agar inferensi jauh lebih cepat.
    */
   llmMaxInputChars: Number(process.env.LLM_MAX_INPUT_CHARS ?? "0"),
+  /** Batas token output ringkasan. Kecilkan (mis. 1000) untuk mempercepat di CPU. */
+  llmMaxOutputTokens: Number(process.env.LLM_MAX_OUTPUT_TOKENS ?? "1500"),
+  /** Timeout pemanggilan LLM (detik). Naikkan bila model di CPU lambat. */
+  llmTimeoutMs: Math.max(10, Number(process.env.LLM_TIMEOUT_SECONDS ?? "120")) * 1000,
+  /**
+   * Matikan "thinking" model (mis. Qwen3). true = tambah "/no_think" ke prompt
+   * + buang blok <think>…</think> dari hasil. Sangat mempercepat di CPU.
+   */
+  llmDisableThinking: (process.env.LLM_DISABLE_THINKING ?? "false") === "true",
 
   /**
    * Daftar nomor/JID yang boleh menjalankan perintah "!", dipisah koma.

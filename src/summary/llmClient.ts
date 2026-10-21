@@ -8,17 +8,26 @@ export interface ChatRequest {
   maxTokens?: number;
 }
 
+/** Buang blok <think>…</think> (model thinking seperti Qwen3) dari hasil. */
+function stripThink(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
 /**
  * Satu pintu untuk memanggil LLM, apa pun providernya.
  * - "anthropic" -> Claude via SDK resmi.
- * - "openai"    -> endpoint kompatibel-OpenAI (mis. Qwen lokal di vLLM/Ollama).
+ * - "openai"    -> endpoint kompatibel-OpenAI (mis. Qwen di Ollama/vLLM).
  * Melempar Error bila gagal; pemanggil yang memberi pesan ramah ke user.
  */
 export async function chatComplete(req: ChatRequest): Promise<string> {
-  if (config.llmProvider === "anthropic") {
-    return anthropicComplete(req);
-  }
-  return openaiComplete(req);
+  // Soft-switch untuk mematikan thinking pada model Qwen3.
+  const user = config.llmDisableThinking ? `${req.user}\n\n/no_think` : req.user;
+  const r: ChatRequest = { ...req, user };
+  const out =
+    config.llmProvider === "anthropic"
+      ? await anthropicComplete(r)
+      : await openaiComplete(r);
+  return stripThink(out);
 }
 
 /** Label provider untuk log/pesan. */
@@ -39,7 +48,7 @@ function getAnthropic(): Anthropic {
 async function anthropicComplete(req: ChatRequest): Promise<string> {
   const response = await getAnthropic().messages.create({
     model: config.claudeModel,
-    max_tokens: req.maxTokens ?? 4000,
+    max_tokens: req.maxTokens ?? config.llmMaxOutputTokens,
     system: req.system,
     messages: [{ role: "user", content: req.user }],
   });
@@ -64,7 +73,7 @@ async function openaiComplete(req: ChatRequest): Promise<string> {
 
   // Timeout manual supaya tidak menggantung bila VM model tidak merespons.
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120_000);
+  const timeout = setTimeout(() => controller.abort(), config.llmTimeoutMs);
 
   try {
     const res = await fetch(url, {
@@ -73,7 +82,7 @@ async function openaiComplete(req: ChatRequest): Promise<string> {
       signal: controller.signal,
       body: JSON.stringify({
         model: config.llmModel,
-        max_tokens: req.maxTokens ?? 4000,
+        max_tokens: req.maxTokens ?? config.llmMaxOutputTokens,
         temperature: 0.3,
         stream: false,
         messages: [
@@ -97,4 +106,7 @@ async function openaiComplete(req: ChatRequest): Promise<string> {
 }
 
 // Info startup.
-logger.info({ provider: config.llmProvider }, `LLM provider: ${providerLabel()}`);
+logger.info(
+  { provider: config.llmProvider, disableThinking: config.llmDisableThinking },
+  `LLM provider: ${providerLabel()}`,
+);
