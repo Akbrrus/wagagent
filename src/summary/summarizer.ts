@@ -73,7 +73,7 @@ export async function summarizeGroup(
       : `Here is the chat transcript of group "${groupName}" (${messages.length} messages). Summarize it:\n\n${transcript}`;
 
   try {
-    const text = await chatComplete({ system, user, maxTokens: 4000 });
+    const text = await chatComplete({ system, user });
     return text || (language === "id" ? "_Ringkasan kosong._" : "_Empty summary._");
   } catch (err) {
     logger.error({ err, groupName, provider: config.llmProvider }, "Gagal membuat ringkasan.");
