@@ -13,8 +13,11 @@
 name: wagagent
 
 services:
-  # Gateway LLM 9Router. WagAgent memanggilnya via http://9router:20128/v1
+  # Gateway LLM 9Router (OPSIONAL). Tidak jalan default.
+  # Aktifkan hanya bila perlu: docker compose --profile ninerouter up -d
+  # (WagAgent bisa pakai LLM apa pun lewat LLM_BASE_URL, mis. Ollama di VM lain.)
   9router:
+    profiles: ["ninerouter"]
     image: ${NINEROUTER_IMAGE:-decolua/9router:latest}
     container_name: 9router
     restart: unless-stopped
@@ -47,8 +50,6 @@ services:
     image: ${WAGAGENT_IMAGE:-wagagent:local}
     container_name: wagagent
     restart: unless-stopped
-    depends_on:
-      - 9router
     env_file:
       - .env
     volumes:
